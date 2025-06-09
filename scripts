@@ -1,0 +1,47 @@
+#!/bin/bash
+
+
+
+# Get a list of all users while removing duplicates 
+users=$(ps -e -o user= | sort | uniq)
+
+# Loop through each user
+echo "$users" | while read -r user; do
+    # Calculate total CPU time for the user               # Remove the 00:00:00 format and get the total time in seconds
+    total_cpu_time=$(ps -U "$user" -o time= --no-headers | awk '{split($1, a, ":"); sum += a[1]*3600 + a[2]*60 + a[3]} END {print sum}')
+    # Calculate the total amount of memory used for the user in KB
+    total_memorykb=$(ps -U "$user" -o rss= | awk '{ sum+=$1 } END {print sum}')
+    # Convert the memory from KB to MB
+    total_memorymb=$((total_memorykb / 24))
+    # Finds the amount of files opened (1 file per line minus the input)
+    total_files_opened=$(ps aux | grep "$user" | wc -l)
+    # Print the user, their total CPU time, their memory used and number of files opened
+    echo "User: $user | Total CPU time: $total_cpu_time Secs | Memory Usage: $total_memorymb MB | Files Opened: $total_files_opened"
+done
+—----------------------------------------------------------------------------------------------------------
+#!/bin/bash
+
+# Get a list of all users while removing duplicates 
+users=$(ps -e -o user= | sort | uniq)
+
+echo "Counting files (this may take a while)..."
+
+# Loop through each user
+echo "$users" | while read -r user; do
+
+    # Use the find command in the loop to count all the setuid files (permission 4000) while redirecting error messages with /dev/null
+    setuid_files=$(find / -user "$user" -perm /4000 -type f 2>/dev/null | wc -l)
+    # Use the find command in the loop to count all the setgid files (permission 2000) while redirecting error messages with /dev/null
+    setgid_files=$(find / -user "$user" -perm /2000 -type f 2>/dev/null | wc -l)
+    # Use the find command in the loop to count all the world writeable files (permission -o+w) while redirecting error messages with /dev/null
+    world_writeable_files=$(find / -user "$user" -perm -o+w -type f 2>/dev/null | wc -l)
+    
+    # Print the user, number of setuid files, number of setgid files and world writeable files
+    echo "User: $user | Setuid files: $setuid_files | Setgid files: $setgid_files | World writeable files $world_writeable_files"
+    
+done
+
+# Use the find command to search for files that are not owned by any user
+unowned_files=$(find / -nouser -type f 2>/dev/null | wc -l)
+# Print the number of unowned files
+echo "Unowned files: $unowned_files"
